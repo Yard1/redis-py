@@ -1572,9 +1572,9 @@ class ClusterPipeline(AbstractRedis, AbstractRedisCluster, AsyncRedisClusterComm
 
             if raise_on_error:
                 for cmd in todo:
-                    name_exc = cmd.get_first_exception()
-                    if name_exc:
-                        name, exc = name_exc
+                    result = cmd.result
+                    if isinstance(result, Exception):
+                        name, _ = cmd.get_first_exception()
                         command = " ".join(map(safe_str, cmd.args))
                         # Note: this will only raise the first exception, but that is
                         # consistent with RedisCluster.execute_command.

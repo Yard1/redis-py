@@ -1604,23 +1604,27 @@ class ClusterPipeline(AbstractRedis, AbstractRedisCluster, AsyncRedisClusterComm
                         exc.args = (msg,) + exc.args[1:]
                         raise exc
 
-            default_node = nodes.get(client.get_default_node().name)
-            if default_node is not None:
-                # This pipeline execution used the default node, check if we need
-                # to replace it.
-                # Note: when the error is raised we'll reset the default node in the
-                # caller function.
-                has_exc = False
-                for cmd in default_node[1]:
-                    # Check if it has a command that failed with a relevant
-                    # exception
-                    for name, exc in cmd.get_all_exceptions():
-                        if type(exc) in self.__class__.ERRORS_ALLOW_RETRY:
-                            client.replace_default_node()
-                            has_exc = True
+            default_cluster_node = client.get_default_node()
+            if default_cluster_node is not None:
+                # Not sure why default_cluster_node is sometimes None; maybe if the object is being
+                # closed during an execution? Either way, this avoids a potential AttributeError
+                default_node = nodes.get(default_cluster_node.name)
+                if default_node is not None:
+                    # This pipeline execution used the default node, check if we need
+                    # to replace it.
+                    # Note: when the error is raised we'll reset the default node in the
+                    # caller function.
+                    has_exc = False
+                    for cmd in default_node[1]:
+                        # Check if it has a command that failed with a relevant
+                        # exception
+                        for name, exc in cmd.get_all_exceptions():
+                            if type(exc) in self.__class__.ERRORS_ALLOW_RETRY:
+                                client.replace_default_node()
+                                has_exc = True
+                                break
+                        if has_exc:
                             break
-                    if has_exc:
-                        break
 
         return [cmd.unwrap_result() for cmd in stack]
 
